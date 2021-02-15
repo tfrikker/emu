@@ -16,7 +16,7 @@ unsigned char* zero_page_x_ptr();
 unsigned char zero_page_y();
 unsigned char* zero_page_y_ptr();
 //relative
-unsigned char absolute();
+unsigned short absolute();
 unsigned char* absolute_ptr();
 unsigned char absolute_x();
 unsigned char* absolute_x_ptr();
@@ -53,7 +53,7 @@ void EOR(unsigned char r);
 void INC(unsigned char* r);
 void INX();
 void INY();
-void JMP(unsigned char r);
+void JMP(unsigned short r);
 void LDA(unsigned char r);
 void LDX(unsigned char r);
 void LDY(unsigned char r);
@@ -142,16 +142,16 @@ int main(int argc, char** argv) {
     PC = 0x280;
 
     while (true) {
-        printf("PC:%X, OPCODE:%X, A:%X, X:%X, Y:%X, C:%d, Z:%d, I:%d, D:%d, B:%d, V:%d, N:%d, S:%X\n", PC, MEM[PC], A, X, Y, C, Z, I, D, B, V, N, S);
+        printf("PC:%02X, OPCODE:%02X, A:%02X, X:%02X, Y:%02X, C:%d, Z:%d, I:%d, D:%d, B:%d, V:%d, N:%d, S:%02X\n", PC, MEM[PC], A, X, Y, C, Z, I, D, B, V, N, S);
         switch(MEM[PC]) {
-            case 0x69: return -1; // TODO $69 ADC Immediate
-            case 0x65: return -1; // TODO $65 ADC Zero Page
-            case 0x75: return -1; // TODO $75 ADC Zero Page,X
-            case 0x6D: return -1; // TODO $6D ADC Absolute
-            case 0x7D: return -1; // TODO $7D ADC Absolute,X
-            case 0x79: return -1; // TODO $79 ADC Absolute,Y
-            case 0x61: return -1; // TODO $61 ADC Indirect,X
-            case 0x71: return -1; // TODO $71 ADC Indirect,Y
+            case 0x69: PC += 2; return -1; // TODO $69 ADC Immediate
+            case 0x65: PC += 2; return -1; // TODO $65 ADC Zero Page
+            case 0x75: PC += 2; return -1; // TODO $75 ADC Zero Page,X
+            case 0x6D: PC += 3; return -1; // TODO $6D ADC Absolute
+            case 0x7D: PC += 3; return -1; // TODO $7D ADC Absolute,X
+            case 0x79: PC += 3; return -1; // TODO $79 ADC Absolute,Y
+            case 0x61: PC += 2; return -1; // TODO $61 ADC Indirect,X
+            case 0x71: PC += 2; return -1; // TODO $71 ADC Indirect,Y
 
             case 0x29: AND(immediate()); PC += 2; break; // $29 AND Immediate
             case 0x25: AND(zero_page()); PC += 2; break; // $25 AND Zero Page
@@ -241,8 +241,8 @@ int main(int argc, char** argv) {
 
             case 0xC8: INY(); PC += 1; break; // $C8 INY
 
-            case 0x4C: JMP(absolute()); PC += 3; break; // $4C JMP Absolute
-            case 0x6C: JMP(indirect()); PC += 3; break; // $6C JMP Indirect
+            case 0x4C: JMP(absolute()); break; // $4C JMP Absolute
+            case 0x6C: JMP(indirect()); break; // $6C JMP Indirect
 
             case 0x20: PC += 3; return -1; // TODO $20 JSR Absolute
 
@@ -350,6 +350,8 @@ int main(int argc, char** argv) {
             case 0x9A: TXS(); PC += 1; break; // $9A TXS
 
             case 0x98: TYA(); PC += 1; break; // $98 TYA
+
+            default: return -1; //unimplemented
         }
     }
 
@@ -364,7 +366,7 @@ char getVal(char c){
 }
 
 unsigned short getShort() {
-    return (MEM[MEM[PC + 1]] << 2) + MEM[MEM[PC + 2] + 1];
+    return (MEM[PC + 2] << 8) + MEM[PC + 1];
 }
 
 unsigned char* accumulator_ptr() {
@@ -402,8 +404,8 @@ unsigned char* zero_page_y_ptr() {
     return &MEM[(addr + Y) & 0xFF];
 }
 
-unsigned char absolute() {
-    return *absolute_ptr();
+unsigned short absolute() {
+    return getShort();
 }
 
 unsigned char* absolute_ptr() {
@@ -447,357 +449,306 @@ unsigned char* indirect_y_ptr() {
 }
 
 void AND(unsigned char r) {
+    printf("AND $%02X\n", r);
     A = A & r;
-    if (A == 0) {
-        Z = true;
-    }
-    if (A & 0x80) {
-        N = true;
-    }
+    Z = A == 0;
+    N = A & 0x80;
 }
 
 void ASL(unsigned char *r) {
+    printf("ASL $%02X\n", *r);
     C = *r & 0x80;
     *r = *r << 1;
-    if (A == 0) {
-        Z = true;
-    }
+    Z = A == 0;
 }
 
 void BCC(char delta) {
+    printf("BCC $%02X\n", delta);
     if (!C) {
         PC += delta;
     }
 }
 
 void BCS(char delta) {
+    printf("BCS $%02X\n", delta);
     if (C) {
         PC += delta;
     }
 }
 
 void BEQ(char delta) {
+    printf("BEQ $%02X\n", delta);
     if (Z) {
         PC += delta;
     }
 }
 
 void BIT(unsigned char r) {
+    printf("BIT $%02X\n", r);
     unsigned short result = A & r;
-    if (result == 0) {
-        Z = true;
-    }
+    Z = result == 0;
     V = result & 0x40;
     N = result & 0x80;
 }
 
 void BPL(char delta) {
+    printf("BPL $%02X\n", delta);
     if (!N) {
         PC += delta;
     }
 }
 
 void BMI(char delta) {
+    printf("BMI $%02X\n", delta);
     if (N) {
         PC += delta;
     }
 }
 
 void BNE(char delta) {
+    printf("BNE $%02X\n", delta);
     if (!Z) {
         PC += delta;
     }
 }
 
 void BVC(char delta) {
+    printf("BVC $%02X\n", delta);
     if (!V) {
         PC += delta;
     }
 }
 
 void BVS(char delta) {
+    printf("BVS $%02X\n", delta);
     if (V) {
         PC += delta;
     }
 }
 
 void CLC() {
+    printf("CLC\n");
     C = false;
 }
 
 void CLD() {
+    printf("CLD\n");
     D = false;
 }
 
 void CLI() {
+    printf("CLI\n");
     I = false;
 }
 
 void CLV() {
+    printf("CLV\n");
     V = false;
 }
 
 void CMP(unsigned char r) {
+    printf("CMP $%02X\n", r);
     if (A >= r) {
         C = true;
     }
-    if (A == r) {
-        Z = true;
-    }
-    if ((A - r) & 0x80) {
-        N = true;
-    }
+    Z = A == r;
+    N = (A - r) & 0x80;
 }
 
 void CPX(unsigned char r) {
+    printf("CPX $%02X\n", r);
     if (X >= r) {
         C = true;
     }
-    if (X == r) {
-        Z = true;
-    }
-    if ((X - r) & 0x80) {
-        N = true;
-    }
+    Z = X == r;
+    N = (X - r) & 0x80;
 }
 
 void CPY(unsigned char r) {
+    printf("CPY $%02X\n", r);
     if (Y >= r) {
         C = true;
     }
-    if (Y == r) {
-        Z = true;
-    }
-    if ((Y - r) & 0x80) {
-        N = true;
-    }
+    Z = Y == r;
+    N = (Y - r) & 0x80;
 }
 
 void DEC(unsigned char* r) {
+    printf("DEC $%02X\n", *r);
     *r -= 1;
-    if (*r == 0) {
-        Z = true;
-    }
-    if (*r & 0x80) {
-        N = true;
-    }
+    Z = *r == 0;
+    N = *r & 0x80;
 }
 
 void DEX() {
+    printf("DEX\n");
     X -= 1;
-    if (X == 0) {
-        Z = true;
-    }
-    if (X & 0x80) {
-        N = true;
-    }
+    Z = X == 0;
+    N = X & 0x80;
 }
 
 void DEY() {
+    printf("DEY\n");
     Y -= 1;
-    if (Y == 0) {
-        Z = true;
-    }
-    if (Y & 0x80) {
-        N = true;
-    }
+    Z = Y == 0;
+    N = Y & 0x80;
 }
 
 void EOR(unsigned char r) {
+    printf("EOR $%02X\n", r);
     A = A ^ r;
-    if (A == 0) {
-        Z = true;
-    }
-    if (A & 0x80) {
-        N = true;
-    }
+    Z = A == 0;
+    N = A & 0x80;
 }
 
 void INC(unsigned char* r) {
+    printf("INC $%02X\n", *r);
     *r += 1;
-    if (*r == 0) {
-        Z = true;
-    }
-    if (*r & 0x80) {
-        N = true;
-    }
+    Z = *r == 0;
+    N = *r & 0x80;
 }
 
 void INX() {
+    printf("INX\n");
     X += 1;
-    if (X == 0) {
-        Z = true;
-    }
-    if (X & 0x80) {
-        N = true;
-    }
+    Z = X == 0;
+    N = X & 0x80;
 }
 
 void INY() {
+    printf("INY\n");
     Y += 1;
-    if (Y == 0) {
-        Z = true;
-    }
-    if (Y & 0x80) {
-        N = true;
-    }
+    Z = Y == 0;
+    N = Y & 0x80;
 }
 
-void JMP(unsigned char r) {
+void JMP(unsigned short r) {
+    printf("JMP $%02X\n", r);
     PC = r;
 }
 
 void LDA(unsigned char r) {
+    printf("LDA $%02X\n", r);
     A = r;
-    if (A == 0) {
-        Z = true;
-    }
-    if (A & 0x80) {
-        N = true;
-    }
+    Z = A == 0;
+    N = A & 0x80;
 }
 
 void LDX(unsigned char r) {
+    printf("LDX $%02X\n", r);
     X = r;
-    if (X == 0) {
-        Z = true;
-    }
-    if (X & 0x80) {
-        N = true;
-    }
+    Z = X == 0;
+    N = X & 0x80;
 }
 
 void LDY(unsigned char r) {
+    printf("LDY $%02X\n", r);
     Y = r;
-    if (Y == 0) {
-        Z = true;
-    }
-    if (Y & 0x80) {
-        N = true;
-    }
+    Z = Y == 0;
+    N = Y & 0x80;
 }
 
 void LSR(unsigned char* r) {
+    printf("LSR $%02X\n", *r);
     C = *r & 0x01;
     *r = *r >> 1;
-    if (*r == 0) {
-        Z = true;
-    }
-    if (*r & 0x80) {
-        N = true;
-    }
+    Z = *r == 0;
+    N = *r & 0x80;
 }
 
 void ORA(unsigned char r) {
+    printf("ORA $%02X\n", r);
     A = A | r;
-    if (A == 0) {
-        Z = true;
-    }
-    if (A & 0x80) {
-        N = true;
-    }
+    Z = A == 0;
+    N = A & 0x80;
 }
 
 void ROL(unsigned char* r) {
+    printf("ROL $%02X\n", *r);
     unsigned char old_carry = C;
     C = *r & 0x80;
     *r = *r << 1;
     *r = *r | old_carry;
-    if (A & 0x80) {
-        N = true;
-    }
-    if (A == 0) {
-        Z = true;
-    }
+    N = A & 0x80;
+    Z = A == 0;
 }
 
 void ROR(unsigned char* r) {
+    printf("ROR $%02X\n", *r);
     unsigned char old_carry = C;
     C = *r & 0x01;
     *r = *r >> 1;
     *r = *r | (old_carry << 7);
-    if (A & 0x80) {
-        N = true;
-    }
-    if (A == 0) {
-        Z = true;
-    }
+    N = A & 0x80;
+    Z = A == 0;
 }
 
 void SEC() {
+    printf("SEC\n");
     C = true;
 }
 
 void SED() {
+    printf("SED\n");
     D = true;
 }
 
 void SEI() {
+    printf("SEI\n");
     I = true;
 }
 
 void STA(unsigned char* r) {
+    printf("STA $%02X\n", *r);
     *r = A;
 }
 
 void STX(unsigned char* r) {
+    printf("STX $%02X\n", *r);
     *r = X;
 }
 
 void STY(unsigned char* r) {
+    printf("STY $%02X\n", *r);
     *r = Y;
 }
 
 void TAX() {
+    printf("TAX\n");
     X = A;
-    if (X & 0x80) {
-        N = true;
-    }
-    if (X == 0) {
-        Z = true;
-    }
+    N = X & 0x80;
+    Z = X == 0;
 }
 
 void TAY() {
+    printf("TAY\n");
     Y = A;
-    if (Y & 0x80) {
-        N = true;
-    }
-    if (Y == 0) {
-        Z = true;
-    }
+    N = Y & 0x80;
+    Z = Y == 0;
 }
 
 void TSX() {
+    printf("TSX\n");
     X = S;
-    if (X & 0x80) {
-        N = true;
-    }
-    if (X == 0) {
-        Z = true;
-    }
+    N = X & 0x80;
+    Z = X == 0;
 }
 
 void TXA() {
+    printf("TXA\n");
     A = X;
-    if (A & 0x80) {
-        N = true;
-    }
-    if (A == 0) {
-        Z = true;
-    }
+    N = A & 0x80;
+    Z = A == 0;
 }
 
 void TXS() {
+    printf("TXS\n");
     S = X;
 }
 
 void TYA() {
+    printf("TYA\n");
     A = Y;
-    if (A & 0x80) {
-        N = true;
-    }
-    if (A == 0) {
-        Z = true;
-    }
+    N = A & 0x80;
+    Z = A == 0;
 }
