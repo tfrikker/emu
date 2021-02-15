@@ -28,6 +28,7 @@ unsigned char* indirect_x_ptr();
 unsigned char indirect_y();
 unsigned char* indirect_y_ptr();
 
+void ADC(unsigned char r);
 void AND(unsigned char r);
 void ASL(unsigned char *r);
 void BCC(char delta);
@@ -54,11 +55,13 @@ void INC(unsigned char* r);
 void INX();
 void INY();
 void JMP(unsigned short r);
+void JSR(unsigned short r);
 void LDA(unsigned char r);
 void LDX(unsigned char r);
 void LDY(unsigned char r);
 void LSR(unsigned char* r);
 void ORA(unsigned char r);
+void PHA();
 void ROL(unsigned char* r);
 void ROR(unsigned char* r);
 void SEC();
@@ -84,9 +87,9 @@ bool D = false; // Decimal Mode Flag
 bool B = false; // Break Command
 bool V = false; // Overflow Flag
 bool N = false; // Negative Flag
-unsigned char S; // 8-bit stack pointer
+unsigned char S = 0xFF; // 8-bit stack pointer from $0100 - $01FF
 unsigned short PC; // 16-bit program counter
-unsigned char MEM[4 * 1024]; // 4kB memory
+unsigned char MEM[0xFFFF]; // 4kB memory
 
 
 int main(int argc, char** argv) {
@@ -144,14 +147,14 @@ int main(int argc, char** argv) {
     while (true) {
         printf("PC:%02X, OPCODE:%02X, A:%02X, X:%02X, Y:%02X, C:%d, Z:%d, I:%d, D:%d, B:%d, V:%d, N:%d, S:%02X\n", PC, MEM[PC], A, X, Y, C, Z, I, D, B, V, N, S);
         switch(MEM[PC]) {
-            case 0x69: PC += 2; return -1; // TODO $69 ADC Immediate
-            case 0x65: PC += 2; return -1; // TODO $65 ADC Zero Page
-            case 0x75: PC += 2; return -1; // TODO $75 ADC Zero Page,X
-            case 0x6D: PC += 3; return -1; // TODO $6D ADC Absolute
-            case 0x7D: PC += 3; return -1; // TODO $7D ADC Absolute,X
-            case 0x79: PC += 3; return -1; // TODO $79 ADC Absolute,Y
-            case 0x61: PC += 2; return -1; // TODO $61 ADC Indirect,X
-            case 0x71: PC += 2; return -1; // TODO $71 ADC Indirect,Y
+            case 0x69: ADC(immediate()); PC += 2; break; // $69 ADC Immediate
+            case 0x65: ADC(zero_page()); PC += 2; break; // $65 ADC Zero Page
+            case 0x75: ADC(zero_page_x()); PC += 2; break; // $75 ADC Zero Page,X
+            case 0x6D: ADC(absolute()); PC += 3; break; // $6D ADC Absolute
+            case 0x7D: ADC(absolute_x()); PC += 3; break; // $7D ADC Absolute,X
+            case 0x79: ADC(absolute_y()); PC += 3; break; // $79 ADC Absolute,Y
+            case 0x61: ADC(indirect_x()); PC += 2; break; // $61 ADC Indirect,X
+            case 0x71: ADC(indirect_y()); PC += 2; break; // $71 ADC Indirect,Y
 
             case 0x29: AND(immediate()); PC += 2; break; // $29 AND Immediate
             case 0x25: AND(zero_page()); PC += 2; break; // $25 AND Zero Page
@@ -168,26 +171,26 @@ int main(int argc, char** argv) {
             case 0x0E: ASL(absolute_ptr()); PC += 3; break; // $0E ASL Absolute
             case 0x1E: ASL(absolute_x_ptr()); PC += 3; break; // $1E ASL Absolute,X
 
-            case 0x90: BCC(MEM[PC + 1]); PC += 2; break; // $90 BCC
+            case 0x90: BCC(MEM[PC + 1]); break; // $90 BCC
 
-            case 0xB0: BCS(MEM[PC + 1]); PC += 2; break; // $B0 BCS
+            case 0xB0: BCS(MEM[PC + 1]); break; // $B0 BCS
 
-            case 0xF0: BEQ(MEM[PC + 1]); PC += 2; break; // $F0 BEQ
+            case 0xF0: BEQ(MEM[PC + 1]); break; // $F0 BEQ
 
             case 0x24: BIT(zero_page()); PC += 2; break; // $24 BIT Zero Page
             case 0x2C: BIT(absolute()); PC += 3; break; // $2C BIT Absolute
 
-            case 0x30: BMI(MEM[PC + 1]); PC += 2; break; // $30 BMI
+            case 0x30: BMI(MEM[PC + 1]); break; // $30 BMI
 
-            case 0xD0: BNE(MEM[PC + 1]); PC += 2; break; // $D0 BNE
+            case 0xD0: BNE(MEM[PC + 1]); break; // $D0 BNE
 
-            case 0x10: BPL(MEM[PC + 1]); PC += 2; break; // $10 BPL Relative
+            case 0x10: BPL(MEM[PC + 1]); break; // $10 BPL Relative
 
             case 0x00: PC += 1; return -1; // TODO $00 BRK Implied
 
-            case 0x50: BVC(MEM[PC + 1]); PC += 2; break; // $50 BVC
+            case 0x50: BVC(MEM[PC + 1]); break; // $50 BVC
 
-            case 0x70: BVS(MEM[PC + 1]); PC += 2; break; // $70 BVS
+            case 0x70: BVS(MEM[PC + 1]); break; // $70 BVS
 
             case 0x18: CLC(); PC += 1; break; // $18 CLC
 
@@ -244,7 +247,7 @@ int main(int argc, char** argv) {
             case 0x4C: JMP(absolute()); break; // $4C JMP Absolute
             case 0x6C: JMP(indirect()); break; // $6C JMP Indirect
 
-            case 0x20: PC += 3; return -1; // TODO $20 JSR Absolute
+            case 0x20: JSR(absolute()); break; // TODO $20 JSR Absolute
 
             case 0xA9: LDA(immediate()); PC += 2; break; // $A9 LDA Immediate
             case 0xA5: LDA(zero_page()); PC += 2; break; // $A5 LDA Zero Page
@@ -284,7 +287,7 @@ int main(int argc, char** argv) {
             case 0x01: ORA(indirect_x()); PC += 2; break; // $01 ORA Indirect,X
             case 0x11: ORA(indirect_y()); PC += 2; break; // $11 ORA Indirect,Y
 
-            case 0x48: PC += 1; return -1; // TODO $48 PHA
+            case 0x48: PHA(); PC += 1; break; // $48 PHA
 
             case 0x08: PC += 1; return -1; // TODO $08 PHP
 
@@ -369,6 +372,10 @@ unsigned short getShort() {
     return (MEM[PC + 2] << 8) + MEM[PC + 1];
 }
 
+unsigned short SP() {
+    return 0x0100 + S;
+}
+
 unsigned char* accumulator_ptr() {
     return &A;
 }
@@ -448,6 +455,22 @@ unsigned char* indirect_y_ptr() {
     return &MEM[zero_page_y()];
 }
 
+void ADC(unsigned char r) {
+    printf("ADC $%02X\n", r);
+    //perform a signed addition in short space for the purpose of setting flags
+    short result = ((C << 8) + A) + r;
+    // if we have something to carry, set the carry flag
+    C = result & 0x100;
+    //perform and store the actual addition
+    A = (((C << 8) + A) + r) & 0xFF;
+    //check if sign bit is incorrect
+    V = (result > 0 && (result & 0x80)) || (result < 0 && !(result & 0x80));
+    //set zero flag if 0
+    Z = A == 0;
+    //set negative flag if negative
+    N = A & 0x80;
+}
+
 void AND(unsigned char r) {
     printf("AND $%02X\n", r);
     A = A & r;
@@ -466,6 +489,8 @@ void BCC(char delta) {
     printf("BCC $%02X\n", delta);
     if (!C) {
         PC += delta;
+    } else {
+        PC += 2;
     }
 }
 
@@ -473,6 +498,8 @@ void BCS(char delta) {
     printf("BCS $%02X\n", delta);
     if (C) {
         PC += delta;
+    } else {
+        PC += 2;
     }
 }
 
@@ -480,6 +507,8 @@ void BEQ(char delta) {
     printf("BEQ $%02X\n", delta);
     if (Z) {
         PC += delta;
+    } else {
+        PC += 2;
     }
 }
 
@@ -495,6 +524,8 @@ void BPL(char delta) {
     printf("BPL $%02X\n", delta);
     if (!N) {
         PC += delta;
+    } else {
+        PC += 2;
     }
 }
 
@@ -502,6 +533,8 @@ void BMI(char delta) {
     printf("BMI $%02X\n", delta);
     if (N) {
         PC += delta;
+    } else {
+        PC += 2;
     }
 }
 
@@ -509,6 +542,8 @@ void BNE(char delta) {
     printf("BNE $%02X\n", delta);
     if (!Z) {
         PC += delta;
+    } else {
+        PC += 2;
     }
 }
 
@@ -516,6 +551,8 @@ void BVC(char delta) {
     printf("BVC $%02X\n", delta);
     if (!V) {
         PC += delta;
+    } else {
+        PC += 2;
     }
 }
 
@@ -523,6 +560,8 @@ void BVS(char delta) {
     printf("BVS $%02X\n", delta);
     if (V) {
         PC += delta;
+    } else {
+        PC += 2;
     }
 }
 
@@ -627,6 +666,15 @@ void JMP(unsigned short r) {
     PC = r;
 }
 
+void JSR(unsigned short r) {
+    printf("JSR $%02X\n", r);
+    MEM[S] = (PC + 2) >> 8;
+    S--;
+    MEM[S] = (PC + 2) & 0xFF;
+    S--;
+    PC = r;
+}
+
 void LDA(unsigned char r) {
     printf("LDA $%02X\n", r);
     A = r;
@@ -681,6 +729,12 @@ void ROR(unsigned char* r) {
     *r = *r | (old_carry << 7);
     N = A & 0x80;
     Z = A == 0;
+}
+
+void PHA() {
+    printf("PHA\n");
+    MEM[SP()] = A;
+    S--;
 }
 
 void SEC() {
