@@ -62,8 +62,10 @@ void LDY(unsigned char r);
 void LSR(unsigned char* r);
 void ORA(unsigned char r);
 void PHA();
+void PLA();
 void ROL(unsigned char* r);
 void ROR(unsigned char* r);
+void RTS();
 void SEC();
 void SED();
 void SEI();
@@ -203,35 +205,35 @@ int main(int argc, char** argv) {
             case 0xC9: CMP(immediate()); PC += 2; break; // $C9 CMP Immediate
             case 0xC5: CMP(zero_page()); PC += 2; break; // $C5 CMP Zero Page
             case 0xD5: CMP(zero_page_x()); PC += 2; break; // $D5 CMP Zero Page,X
-            case 0xCD: CMP(absolute()); break; // $CD CMP Absolute
-            case 0xDD: CMP(absolute_x()); break; // $DD CMP Absolute,X
-            case 0xD9: CMP(absolute_y()); break; // $D9 CMP Absolute,Y
+            case 0xCD: CMP(absolute()); PC += 3; break; // $CD CMP Absolute
+            case 0xDD: CMP(absolute_x()); PC += 3; break; // $DD CMP Absolute,X
+            case 0xD9: CMP(absolute_y()); PC += 3; break; // $D9 CMP Absolute,Y
             case 0xC1: CMP(indirect_x()); PC += 2; break; // $C1 CMP Indirect,X
             case 0xD1: CMP(indirect_y()); PC += 2; break; // $D1 CMP Indirect,Y
 
             case 0xE0: CPX(immediate()); PC += 2; break; // $E0 CPX Immediate
             case 0xE4: CPX(zero_page()); PC += 2; break; // $E4 CPX Zero Page
-            case 0xEC: CPX(absolute()); break; // $EC CPX Absolute
+            case 0xEC: CPX(absolute()); PC += 3; break; // $EC CPX Absolute
 
             case 0xC0: CPY(immediate()); PC += 2; break; // $C0 CPY Immediate
             case 0xC4: CPY(zero_page()); PC += 2; break; // $C4 CPY Zero Page
-            case 0xCC: CPY(absolute()); break; // $CC CPY Absolute
+            case 0xCC: CPY(absolute()); PC += 3; break; // $CC CPY Absolute
 
             case 0xC6: DEC(zero_page_ptr()); PC += 2; break; // $C6 DEC Zero Page
             case 0xD6: DEC(zero_page_x_ptr()); PC += 2; break; // $D6 DEC Zero Page,X
-            case 0xCE: DEC(absolute_ptr()); break; // $CE DEC Absolute
-            case 0xDE: DEC(absolute_x_ptr()); break; // $DE DEC Absolute,X
+            case 0xCE: DEC(absolute_ptr()); PC += 3; break; // $CE DEC Absolute
+            case 0xDE: DEC(absolute_x_ptr()); PC += 3; break; // $DE DEC Absolute,X
 
-            case 0xCA: DEX(); break; // $CA DEX
+            case 0xCA: DEX(); PC += 1; break; // $CA DEX
 
-            case 0x88: DEY(); break; // $88 DEY
+            case 0x88: DEY(); PC += 1; break; // $88 DEY
 
             case 0x49: EOR(immediate()); PC += 2; break; // $49 EOR Immediate
             case 0x45: EOR(zero_page()); PC += 2; break; // $45 EOR Zero Page
             case 0x55: EOR(zero_page_x()); PC += 2; break; // $55 EOR Zero Page,X
-            case 0x4D: EOR(absolute()); break; // $4D EOR Absolute
-            case 0x5D: EOR(absolute_x()); break; // $5D EOR Absolute,X
-            case 0x59: EOR(absolute_y()); break; // $59 EOR Absolute,Y
+            case 0x4D: EOR(absolute()); PC += 3; break; // $4D EOR Absolute
+            case 0x5D: EOR(absolute_x()); PC += 3; break; // $5D EOR Absolute,X
+            case 0x59: EOR(absolute_y()); PC += 3; break; // $59 EOR Absolute,Y
             case 0x41: EOR(indirect_x()); PC += 2; break; // $41 EOR Indirect,X
             case 0x51: EOR(indirect_y()); PC += 2; break; // $51 EOR Indirect,Y
 
@@ -291,7 +293,7 @@ int main(int argc, char** argv) {
 
             case 0x08: PC += 1; return -1; // TODO $08 PHP
 
-            case 0x68: PC += 1; return -1; // TODO $69 PLA
+            case 0x68: PLA(); PC += 1; break; // $69 PLA
 
             case 0x28: PC += 1; return -1; // TODO $28 PLP
 
@@ -309,7 +311,7 @@ int main(int argc, char** argv) {
 
             case 0x40: PC += 1; return -1; // TODO $40 RTI Implied
 
-            case 0x60: PC += 1; return -1; // TODO $60 RTS Implied
+            case 0x60: RTS(); break; // $60 RTS Implied
 
             case 0xE9: PC += 2; return -1; // TODO $E9 SBC Immediate
             case 0xE5: PC += 2; return -1; // TODO $E5 SBC Zero Page
@@ -460,7 +462,7 @@ void ADC(unsigned char r) {
     //perform a signed addition in short space for the purpose of setting flags
     short result = ((C << 8) + A) + r;
     // if we have something to carry, set the carry flag
-    C = result & 0x100;
+    C = result & 0x100; //TODO doesn't work for negatives
     //perform and store the actual addition
     A = (((C << 8) + A) + r) & 0xFF;
     //check if sign bit is incorrect
@@ -668,10 +670,10 @@ void JMP(unsigned short r) {
 
 void JSR(unsigned short r) {
     printf("JSR $%02X\n", r);
-    MEM[S] = (PC + 2) >> 8;
     S--;
-    MEM[S] = (PC + 2) & 0xFF;
+    MEM[SP()] = (PC + 2) >> 8;
     S--;
+    MEM[SP()] = (PC + 2) & 0xFF;
     PC = r;
 }
 
@@ -733,8 +735,20 @@ void ROR(unsigned char* r) {
 
 void PHA() {
     printf("PHA\n");
-    MEM[SP()] = A;
     S--;
+    MEM[SP()] = A;
+}
+
+void PLA() {
+    printf("PLA\n");
+    A = MEM[SP()];
+    S++;
+}
+
+void RTS() {
+    printf("RTS\n");
+    PC = MEM[SP()] + (MEM[SP() + 1] << 8) + 1; //add one more to continue execution past JMP
+    S += 2;
 }
 
 void SEC() {
