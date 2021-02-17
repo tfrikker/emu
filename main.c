@@ -69,6 +69,7 @@ void PLA();
 void ROL(unsigned char* r);
 void ROR(unsigned char* r);
 void RTS();
+void SBC(unsigned char r);
 void SEC();
 void SED();
 void SEI();
@@ -98,24 +99,36 @@ unsigned char MEM[0xFFFF]; // 4kB memory
 
 bool DEBUG = false;
 
+unsigned char CHAR_COL = 0;
+
+#define KGRN  "\x1B[32m"
+
 int main(int argc, char** argv) {
+    printf("%s", KGRN);
     FILE *fp;
-    fp = fopen("6502_memtest.txt", "rb");
+    fp = fopen("apple30th.txt", "rb");
 
     char line[100];
+
+    unsigned short memAddr;
+    bool memAddrSet;
 
     while (fgets(line, 100, fp) != NULL) {
         if (strncmp(line, "\n", 1) == 0) {
             continue;
         }
 
+        memAddrSet = false;
         char c;
         int i = 0;
-        unsigned short memAddr = 0;
         while (true) {
             c = line[i];
             if (c == ':') {
                 break;
+            }
+            if (!memAddrSet) {
+                memAddrSet = true;
+                memAddr = 0;
             }
             memAddr = (memAddr * 16) + getVal(c);
             i++;
@@ -312,14 +325,14 @@ int main(int argc, char** argv) {
 
             case 0x60: RTS(); break; // $60 RTS Implied
 
-            case 0xE9: return -1; // TODO $E9 SBC Immediate
-            case 0xE5: return -1; // TODO $E5 SBC Zero Page
-            case 0xF5: return -1; // TODO $F5 SBC Zero Page,X
-            case 0xED: return -1; // TODO $ED SBC Absolute
-            case 0xFD: return -1; // TODO $FD SBC Absolute,X
-            case 0xF9: return -1; // TODO $F9 SBC Absolute,Y
-            case 0xE1: return -1; // TODO $E1 SBC Indirect,X
-            case 0xF1: return -1; // TODO $F1 SBC Indirect,Y
+            case 0xE9: SBC(immediate()); break; // $E9 SBC Immediate
+            case 0xE5: SBC(zero_page()); break; // $E5 SBC Zero Page
+            case 0xF5: SBC(zero_page_x()); break; // $F5 SBC Zero Page,X
+            case 0xED: SBC(absolute()); break; // $ED SBC Absolute
+            case 0xFD: SBC(absolute_x()); break; // $FD SBC Absolute,X
+            case 0xF9: SBC(absolute_y()); break; // $F9 SBC Absolute,Y
+            case 0xE1: SBC(indirect_x()); break; // $E1 SBC Indirect,X
+            case 0xF1: SBC(indirect_y()); break; // $F1 SBC Indirect,Y
 
             case 0x38: SEC(); break; // $38 SEC
 
@@ -378,8 +391,21 @@ unsigned short getShort() {
 }
 
 void refreshDisplay() {
-    if ((MEM[0xD012] & 0x7F)) {
-        printf("%c", (MEM[0xD012] & 0x7F)); // lower seven bits are data output, high order bit is "display ready" = 1=ready, 0=busy
+    unsigned char c = MEM[0xD012] & 0x7F;
+    if (c) {
+        if (c == 0x0D) {
+            printf("\n");
+        }
+        if (c == '\n' || c == 0x0D) {
+            CHAR_COL = 0;
+        } else {
+            if (CHAR_COL == 40) {
+                CHAR_COL = 0;
+                printf("\n");
+            }
+            CHAR_COL += 1;
+        }
+        printf("%c", c); // lower seven bits are data output, high order bit is "display ready" = 1=ready, 0=busy
         MEM[0xD012] = 0;
     }
 }
@@ -486,9 +512,8 @@ unsigned char* indirect_y_ptr() {
 void ADC(unsigned char r) {
     if (DEBUG) printf("ADC $%02X\n", r);
     //perform and store the actual addition
-    A = (C + A + r) & 0xFF;
-    //perform a signed addition in short space for the purpose of setting flags
     short result = C + A + r;
+    A = result & 0xFF;
     // if we have something to carry, set the carry flag
     C = result & 0x100; //TODO doesn't work for negatives
     //check if sign bit is incorrect
@@ -733,6 +758,21 @@ void ROR(unsigned char* r) {
     *r = *r | (old_carry << 7);
     N = A & 0x80;
     Z = A == 0;
+}
+
+void SBC(unsigned char r) {
+    if (DEBUG) printf("ADC $%02X\n", r);
+    //perform and store the actual addition
+    short result = A - r - (1 - C);
+    A = result & 0xFF;
+    // if we have something to carry, set the carry flag
+    C = result & 0x100; //TODO doesn't work for negatives
+    //check if sign bit is incorrect
+    V = (result > 0 && (result & 0x80)) || (result < 0 && !(result & 0x80));
+    //set zero flag if 0
+    Z = A == 0;
+    //set negative flag if negative
+    N = A & 0x80;
 }
 
 void PHA() {
