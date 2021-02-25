@@ -13,7 +13,7 @@ var S = 0xFF; // 8-bit stack pointer from $0100 - $01FF
 var PC = 0x0000; // 16-bit program counter
 var MEM = new Array(0xFFFF).fill(0x00); // 4kB memory
 
-DEBUG = true;
+DEBUG = false;
 
 CHAR_COL = 0;
 
@@ -637,7 +637,13 @@ function runEmulator() {
     PC = 0x280;
 
     var i = 0;
-    while (++i < 1000) {
+    while (i++ < 300000000) {
+        if (PC == 0x30E) {
+            //DEBUG = true;
+        }
+        if (DEBUG) {
+            i++;
+        }
         if (DEBUG) print("PC:" + PC.toString(16) + ", OPCODE:" + MEM[PC].toString(16) + ", A:" + A.toString(16) + ", X:" + X.toString(16) + ", Y:" + Y.toString(16) + ", C:" + C + ", Z:" + Z + ", I:" + I + ", D:" + D + ", B:" + B + ", V:" + V + ", N:" + N + ", S:" + S.toString(16));
         switch(MEM[PC++]) {
             case 0x69: ADC(immediate()); break; // $69 ADC Immediate
@@ -869,32 +875,28 @@ function getShort() {
     return (highOrder << 8) + lowOrder;
 }
 
+var lineToOutput = "";
+
 function refreshDisplay() {
     c = MEM[0xD012] & 0x7F;
     if (c) {
         if (c == 0x0D) {
-            print("\n");
+            print(lineToOutput);
+            lineToOutput = "";
         }
         if (c == '\n' || c == 0x0D) {
             CHAR_COL = 0;
         } else {
             if (CHAR_COL == 40) {
                 CHAR_COL = 0;
-                print("\n");
+                print(lineToOutput);
+                lineToOutput = "";
             }
             CHAR_COL += 1;
         }
-        print(hex2a(c)); // lower seven bits are data output, high order bit is "display ready" = 1=ready, 0=busy
+        lineToOutput += String.fromCharCode(c); // lower seven bits are data output, high order bit is "display ready" = 1=ready, 0=busy
         MEM[0xD012] = 0;
     }
-}
-
-function hex2a(hexx) {
-    var hex = hexx.toString();//force conversion
-    var str = '';
-    for (var i = 0; (i < hex.length && hex.substr(i, 2) !== '00'); i += 2)
-        str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
-    return str;
 }
 
 function popStack() {
@@ -1035,7 +1037,7 @@ function ADC(r) {
     //set zero flag if 0
     Z = A == 0;
     //set negative flag if negative
-    N = A & 0x80;
+    N = Boolean(A & 0x80);
 }
 
 function AND(r) {
@@ -1043,7 +1045,7 @@ function AND(r) {
     if (DEBUG) print("AND " + val.toString(16));
     A = (A & val) & 0xFF;
     Z = A == 0;
-    N = A & 0x80;
+    N = Boolean(A & 0x80);
 }
 
 function ASL(r) {
@@ -1084,7 +1086,7 @@ function BIT(r) {
     result = (A & val) & 0xFF;
     Z = result == 0;
     V = result & 0x40;
-    N = result & 0x80;
+    N = Boolean(result & 0x80);
 }
 
 function BPL(delta) {
@@ -1152,7 +1154,7 @@ function CMP(r) {
     if (DEBUG) print("CMP " + val.toString(16));
     C = A >= val;
     Z = A == val;
-    N = (A - val) & 0x80;
+    N = Boolean(((A - val) & 0xFF) & 0x80);
 }
 
 function CPX(r) {
@@ -1160,7 +1162,7 @@ function CPX(r) {
     if (DEBUG) print("CPX " + val.toString(16));
     C = X >= val;
     Z = X == val;
-    N = (X - val) & 0x80;
+    N = Boolean(((X - val) & 0xFF) & 0x80);
 }
 
 function CPY(r) {
@@ -1168,7 +1170,7 @@ function CPY(r) {
     if (DEBUG) print("CPY " + val.toString(16));
     C = Y >= val;
     Z = Y == val;
-    N = (Y - val) & 0x80;
+    N = Boolean(((Y - val) & 0xFF) & 0x80);
 }
 
 function DEC(r) {
@@ -1177,21 +1179,21 @@ function DEC(r) {
     var newVal = (val - 1) & 0xFF;
     r.setValue(newVal);
     Z = newVal == 0;
-    N = newVal & 0x80;
+    N = Boolean(newVal & 0x80);
 }
 
 function DEX() {
     if (DEBUG) print("DEX");
     X = (X - 1) & 0xFF;
     Z = X == 0;
-    N = X & 0x80;
+    N = Boolean(X & 0x80);
 }
 
 function DEY() {
     if (DEBUG) print("DEY");
     Y = (Y - 1) & 0xFF;
     Z = Y == 0;
-    N = Y & 0x80;
+    N = Boolean(Y & 0x80);
 }
 
 function EOR(r) {
@@ -1199,7 +1201,7 @@ function EOR(r) {
     if (DEBUG) print("EOR " + val.toString(16));
     A = (A ^ val) & 0xFF;
     Z = A == 0;
-    N = A & 0x80;
+    N = Boolean(A & 0x80);
 }
 
 function INC(r) {
@@ -1208,21 +1210,21 @@ function INC(r) {
     var newVal = (val + 1) & 0xFF;
     r.setValue(newVal);
     Z = newVal == 0;
-    N = newVal & 0x80;
+    N = Boolean(newVal & 0x80);
 }
 
 function INX() {
     if (DEBUG) print("INX");
     X = (X + 1) & 0xFF;
     Z = X == 0;
-    N = X & 0x80;
+    N = Boolean(X & 0x80);
 }
 
 function INY() {
     if (DEBUG) print("INY");
     Y = (Y + 1) & 0xFF;
     Z = Y == 0;
-    N = Y & 0x80;
+    N = Boolean(Y & 0x80);
 }
 
 function JMP(r) {
@@ -1244,7 +1246,7 @@ function LDA(r) {
     if (DEBUG) print("LDA " + val.toString(16));
     A = val;
     Z = A == 0;
-    N = A & 0x80;
+    N = Boolean(A & 0x80);
 }
 
 function LDX(r) {
@@ -1252,7 +1254,7 @@ function LDX(r) {
     if (DEBUG) print("LDX " + val.toString(16));
     X = val;
     Z = X == 0;
-    N = X & 0x80;
+    N = Boolean(X & 0x80);
 }
 
 function LDY(r) {
@@ -1260,7 +1262,7 @@ function LDY(r) {
     if (DEBUG) print("LDY " + val.toString(16));
     Y = val;
     Z = Y == 0;
-    N = Y & 0x80;
+    N = Boolean(Y & 0x80);
 }
 
 function LSR(r) {
@@ -1270,7 +1272,7 @@ function LSR(r) {
     var newVal = (val >> 1) & 0xFF;
     r.setValue(newVal);
     Z = newVal == 0;
-    N = newVal & 0x80;
+    N = Boolean(newVal & 0x80);
 }
 
 function ORA(r) {
@@ -1278,7 +1280,7 @@ function ORA(r) {
     if (DEBUG) print("ORA " + val.toString(16));
     A = (A | val) & 0xFF;
     Z = A == 0;
-    N = A & 0x80;
+    N = Boolean(A & 0x80);
 }
 
 function ROL(r) {
@@ -1286,10 +1288,11 @@ function ROL(r) {
     if (DEBUG) print("ROL " + val.toString(16));
     old_carry = C;
     C = val & 0x80;
-    r.setValue((val << 1) & 0xFF);
-    r.setValue((val | old_carry) & 0xFF);
-    N = A & 0x80;
+    var result = (val << 1) & 0xFF;
+    r.setValue(result);
+    r.setValue((result | old_carry) & 0xFF);
     Z = A == 0;
+    N = Boolean(A & 0x80);
 }
 
 function ROR(r) {
@@ -1297,10 +1300,11 @@ function ROR(r) {
     if (DEBUG) print("ROR " + val.toString(16));
     old_carry = C;
     C = val & 0x01;
-    r.setValue((val >> 1) & 0xFF);
-    r.setValue((val | (old_carry << 7)) & 0xFF);
-    N = A & 0x80;
+    var result = (val >>> 1) & 0xFF;
+    r.setValue(result);
+    r.setValue((result | (old_carry << 7)) & 0xFF);
     Z = A == 0;
+    N = Boolean(A & 0x80);
 }
 
 function SBC(r) {
@@ -1316,7 +1320,7 @@ function SBC(r) {
     //set zero flag if 0
     Z = A == 0;
     //set negative flag if negative
-    N = A & 0x80;
+    N = Boolean(A & 0x80);
 }
 
 function PHA() {
@@ -1367,29 +1371,29 @@ function STY(r) {
 function TAX() {
     if (DEBUG) print("TAX");
     X = A;
-    N = X & 0x80;
     Z = X == 0;
+    N = Boolean(X & 0x80);
 }
 
 function TAY() {
     if (DEBUG) print("TAY");
     Y = A;
-    N = Y & 0x80;
     Z = Y == 0;
+    N = Boolean(Y & 0x80);
 }
 
 function TSX() {
     if (DEBUG) print("TSX");
     X = S;
-    N = X & 0x80;
     Z = X == 0;
+    N = Boolean(X & 0x80);
 }
 
 function TXA() {
     if (DEBUG) print("TXA");
     A = X;
-    N = A & 0x80;
     Z = A == 0;
+    N = Boolean(A & 0x80);
 }
 
 function TXS() {
@@ -1400,6 +1404,6 @@ function TXS() {
 function TYA() {
     if (DEBUG) print("TYA");
     A = Y;
-    N = A & 0x80;
     Z = A == 0;
+    N = Boolean(A & 0x80);
 }
