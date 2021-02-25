@@ -106,7 +106,7 @@ unsigned char CHAR_COL = 0;
 int main(int argc, char** argv) {
     printf("%s", KGRN);
     FILE *fp;
-    fp = fopen("apple30th.txt", "rb");
+    fp = fopen("6502_memtest.txt", "rb");
 
     char line[100];
 
@@ -185,26 +185,26 @@ int main(int argc, char** argv) {
             case 0x0E: ASL(absolute_ptr()); break; // $0E ASL Absolute
             case 0x1E: ASL(absolute_x_ptr()); break; // $1E ASL Absolute,X
 
-            case 0x90: BCC(MEM[PC++]); break; // $90 BCC
+            case 0x90: BCC(immediate()); break; // $90 BCC
 
-            case 0xB0: BCS(MEM[PC++]); break; // $B0 BCS
+            case 0xB0: BCS(immediate()); break; // $B0 BCS
 
-            case 0xF0: BEQ(MEM[PC++]); break; // $F0 BEQ
+            case 0xF0: BEQ(immediate()); break; // $F0 BEQ
 
             case 0x24: BIT(zero_page()); break; // $24 BIT Zero Page
             case 0x2C: BIT(absolute()); break; // $2C BIT Absolute
 
-            case 0x30: BMI(MEM[PC++]); break; // $30 BMI
+            case 0x30: BMI(immediate()); break; // $30 BMI
 
-            case 0xD0: BNE(MEM[PC++]); break; // $D0 BNE
+            case 0xD0: BNE(immediate()); break; // $D0 BNE
 
-            case 0x10: BPL(MEM[PC++]); break; // $10 BPL Relative
+            case 0x10: BPL(immediate()); break; // $10 BPL Relative
 
             case 0x00: return -1; // TODO $00 BRK Implied
 
-            case 0x50: BVC(MEM[PC++]); break; // $50 BVC
+            case 0x50: BVC(immediate()); break; // $50 BVC
 
-            case 0x70: BVS(MEM[PC++]); break; // $70 BVS
+            case 0x70: BVS(immediate()); break; // $70 BVS
 
             case 0x18: CLC(); break; // $18 CLC
 
